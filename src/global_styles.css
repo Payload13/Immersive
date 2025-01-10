@@ -1,0 +1,39 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Reader styles */
+.epub-container {
+  margin: 0 auto;
+  height: 100%;
+}
+
+/* Theme styles */
+.theme-light {
+  background: #ffffff;
+  color: #000000;
+}
+
+.theme-dark {
+  background: #1a1a1a;
+  color: #ffffff;
+}
+
+.theme-sepia {
+  background: #f4ecd8;
+  color: #5f4b32;
+}
+
+/* Scrolled view styles */
+.epub-container[data-layout="scrolled"] {
+  overflow-y: auto;
+  scroll-behavior: smooth;
+}
+
+/* Paginated view styles */
+.epub-container[data-layout="paginated"] {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
