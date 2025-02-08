@@ -44,6 +44,7 @@ export class BookService {
 
   private async initializeStorage() {
     try {
+      // Create necessary directories
       await createDir('books', { dir: BaseDirectory.App, recursive: true });
       await createDir('metadata', { dir: BaseDirectory.App, recursive: true });
       await this.loadBooks();
@@ -65,18 +66,26 @@ export class BookService {
         }
       }
       
-      this.books.next(books.sort((a, b) => new Date(b.lastRead).getTime() - new Date(a.lastRead).getTime()));
+      this.books.next(books.sort((a, b) => 
+        new Date(b.lastRead).getTime() - new Date(a.lastRead).getTime()
+      ));
     } catch (error) {
       console.error('Failed to load books:', error);
     }
   }
 
   async readBookFile(path: string): Promise<ArrayBuffer> {
-    return await readBinaryFile(path, { dir: BaseDirectory.App });
+    try {
+      return await readBinaryFile(path, { dir: BaseDirectory.App });
+    } catch (error) {
+      console.error('Failed to read book file:', error);
+      throw new Error('Could not read book file');
+    }
   }
 
   async importBook() {
     try {
+      // Open file dialog
       const selected = await open({
         multiple: false,
         filters: [{
@@ -85,17 +94,16 @@ export class BookService {
         }]
       });
 
-      if (!selected || Array.isArray(selected)) return;
+      if (!selected || Array.isArray(selected)) return null;
 
-      const fileName = selected.split('/').pop() || 'unknown.epub';
+      const fileName = selected.split(/[\\/]/).pop() || 'unknown.epub';
       const bookId = crypto.randomUUID();
       const bookPath = `books/${bookId}.epub`;
       
-      // Copy book to app directory
       const bookContent = await readBinaryFile(selected);
       await writeFile(bookPath, new TextDecoder().decode(bookContent), { dir: BaseDirectory.App });
-
-      // Create metadata
+      
+      // Create book metadata
       const book: Book = {
         id: bookId,
         title: fileName.replace('.epub', ''),
@@ -107,7 +115,10 @@ export class BookService {
         lastRead: new Date()
       };
 
+      // Save metadata
       await this.saveBookMetadata(book);
+      
+      // Update books list
       const currentBooks = this.books.value;
       this.books.next([book, ...currentBooks]);
 
@@ -157,5 +168,18 @@ export class BookService {
     book.highlights.push(highlight);
     await this.saveBookMetadata(book);
     return highlight;
+  }
+
+  async updateBookProgress(book: Book, progress: number) {
+    book.progress = progress;
+    book.lastRead = new Date();
+    await this.saveBookMetadata(book);
+    
+    // Update books list to reflect changes
+    const currentBooks = this.books.value;
+    const updatedBooks = currentBooks.map(b => 
+      b.id === book.id ? book : b
+    );
+    this.books.next(updatedBooks);
   }
 }

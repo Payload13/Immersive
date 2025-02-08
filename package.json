@@ -25,6 +25,8 @@
     "@angular-devkit/build-angular": "^18.1.0",
     "@angular/cli": "^18.1.0",
     "@angular/compiler-cli": "^18.1.0",
+    "@tailwindcss/aspect-ratio": "^0.4.2",
+    "@tailwindcss/typography": "^0.5.16",
     "@tauri-apps/cli": "^1.6.3",
     "autoprefixer": "^10.4.17",
     "postcss": "^8.4.35",

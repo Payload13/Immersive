@@ -1,10 +1,19 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+@tailwindcss/aspect-ratio;
 
 /* Reader styles */
 .epub-container {
   margin: 0 auto;
+  height: 100%;
+  max-width: 100%;
+  position: relative;
+}
+
+.epub-container iframe {
+  border: none;
+  width: 100%;
   height: 100%;
 }
 
@@ -36,4 +45,38 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
+}
+
+/* Selection styles */
+::selection {
+  background: rgba(46, 170, 220, 0.2);
+}
+
+/* Hide scrollbar for epub content */
+.epub-container iframe::-webkit-scrollbar {
+  display: none;
+}
+
+.epub-container iframe {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Responsive font sizes */
+@media (max-width: 640px) {
+  .epub-container {
+    font-size: 16px;
+  }
+}
+
+@media (min-width: 641px) and (max-width: 1024px) {
+  .epub-container {
+    font-size: 18px;
+  }
+}
+
+@media (min-width: 1025px) {
+  .epub-container {
+    font-size: 20px;
+  }
 }

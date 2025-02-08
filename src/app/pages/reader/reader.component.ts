@@ -24,58 +24,104 @@ import ePub from 'epubjs';
     ExcerptPanelComponent
   ],
   template: `
-    <div class="flex h-screen">
-      <!-- Main reader area -->
-      <div class="flex-1 relative">
-        <div #readerContainer class="h-full"></div>
-        
-        <!-- Navigation controls -->
-        <div class="fixed bottom-4 left-1/2 transform -translate-x-1/2 flex space-x-4">
-          <button 
-            (click)="prev()" 
-            class="p-2 rounded-full bg-gray-800/50 text-white hover:bg-gray-800/75"
-          >
-            ←
-          </button>
-          <button 
-            (click)="next()" 
-            class="p-2 rounded-full bg-gray-800/50 text-white hover:bg-gray-800/75"
-          >
-            →
-          </button>
+    <div class="flex h-screen bg-gray-100 dark:bg-gray-900">
+      <!-- Left Sidebar -->
+      <div 
+        [class.w-64]="showToc" 
+        [class.w-0]="!showToc"
+        class="transition-all duration-300 ease-in-out bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 overflow-hidden"
+      >
+        <div class="p-4">
+          <h3 class="text-lg font-semibold mb-4">Table of Contents</h3>
+          <div class="toc-content"></div>
+        </div>
+      </div>
+
+      <!-- Main Content -->
+      <div class="flex-1 flex flex-col">
+        <!-- Top Bar -->
+        <div class="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-4 flex items-center justify-between">
+          <div class="flex items-center space-x-4">
+            <button 
+              (click)="showToc = !showToc"
+              class="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
+            >
+              ☰
+            </button>
+            <h1 class="text-lg font-semibold">{{ currentBook?.title }}</h1>
+          </div>
+          
+          <div class="flex items-center space-x-4">
+            <button 
+              (click)="showSearch = !showSearch"
+              class="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
+            >
+              🔍
+            </button>
+            <button 
+              (click)="showSettings = !showSettings"
+              class="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
+            >
+              ⚙️
+            </button>
+          </div>
         </div>
 
-        <!-- Settings toggle -->
-        <button 
-          (click)="showSettings = !showSettings"
-          class="fixed top-4 right-4 p-2 rounded-full bg-gray-800/50 text-white hover:bg-gray-800/75"
-        >
-          ⚙️
-        </button>
+        <!-- Reader Area -->
+        <div class="flex-1 flex">
+          <div class="flex-1 relative">
+            <div #readerContainer class="absolute inset-0"></div>
+            
+            <!-- Navigation Controls -->
+            <div class="absolute inset-y-0 left-0 flex items-center">
+              <button 
+                (click)="prev()" 
+                class="p-4 bg-gray-800/20 hover:bg-gray-800/40 text-white rounded-r-lg"
+              >
+                ←
+              </button>
+            </div>
+            <div class="absolute inset-y-0 right-0 flex items-center">
+              <button 
+                (click)="next()" 
+                class="p-4 bg-gray-800/20 hover:bg-gray-800/40 text-white rounded-l-lg"
+              >
+                →
+              </button>
+            </div>
+          </div>
 
-        <!-- Search toggle -->
-        <button 
-          (click)="showSearch = !showSearch"
-          class="fixed top-4 right-16 p-2 rounded-full bg-gray-800/50 text-white hover:bg-gray-800/75"
-        >
-          🔍
-        </button>
+          <!-- Right Sidebar -->
+          <div 
+            [class.w-80]="showSearch || showSettings" 
+            [class.w-0]="!showSearch && !showSettings"
+            class="transition-all duration-300 ease-in-out bg-white dark:bg-gray-800 border-l border-gray-200 dark:border-gray-700 overflow-hidden"
+          >
+            <div *ngIf="showSearch">
+              <app-search-panel 
+                [book]="book"
+                (navigate)="navigateToLocation($event)"
+              ></app-search-panel>
+            </div>
+            <div *ngIf="showSettings">
+              <app-settings-panel></app-settings-panel>
+            </div>
+          </div>
+        </div>
+
+        <!-- Progress Bar -->
+        <div class="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 p-4">
+          <div class="relative w-full h-1 bg-gray-200 dark:bg-gray-700 rounded">
+            <div 
+              class="absolute h-full bg-blue-500 rounded"
+              [style.width.%]="(currentBook?.progress || 0) * 100"
+            ></div>
+          </div>
+        </div>
       </div>
 
-      <!-- Side panels -->
-      <div *ngIf="showSearch" class="w-80 border-l border-gray-200 dark:border-gray-700">
-        <app-search-panel 
-          [book]="book"
-          (navigate)="navigateToLocation($event)"
-        ></app-search-panel>
-      </div>
-
-      <div *ngIf="showSettings" class="w-80 border-l border-gray-200 dark:border-gray-700">
-        <app-settings-panel></app-settings-panel>
-      </div>
-
-      <!-- Floating panels -->
-      <div class="absolute right-8 top-8 space-y-4 z-50">
+      <!-- Floating Panels -->
+      <div class="fixed right-8 top-24 space-y-4 z-50">
         <div *ngIf="showLookup">
           <app-lookup-panel></app-lookup-panel>
         </div>
@@ -90,7 +136,7 @@ import ePub from 'epubjs';
         </div>
       </div>
 
-      <!-- Context menu -->
+      <!-- Context Menu -->
       <div *ngIf="showContextMenu"
            [style.top.px]="contextMenuY"
            [style.left.px]="contextMenuX"
@@ -127,6 +173,7 @@ export class ReaderComponent implements OnInit {
   currentBook: Book | null = null;
   
   // UI state
+  showToc = false;
   showExcerpt = false;
   showLookup = false;
   showSearch = false;
@@ -171,6 +218,17 @@ export class ReaderComponent implements OnInit {
         } else {
           this.rendition.flow('paginated');
         }
+
+        // Apply margins and max width
+        this.rendition.themes.override('margin', `0 ${settings.margins}px`);
+        this.rendition.themes.override('max-width', `${settings.maxWidth}px`);
+      }
+    });
+
+    // Handle click outside context menu
+    document.addEventListener('click', (e) => {
+      if (this.showContextMenu) {
+        this.showContextMenu = false;
       }
     });
   }
@@ -196,6 +254,10 @@ export class ReaderComponent implements OnInit {
         height: '100%',
         spread: 'none'
       });
+
+      // Load table of contents
+      const toc = await this.book.loaded.navigation;
+      this.renderTableOfContents(toc.toc);
 
       // Load last position
       const savedLocation = localStorage.getItem(`book-${this.bookId}-location`);
@@ -232,9 +294,51 @@ export class ReaderComponent implements OnInit {
         }
       });
 
+      // Load existing highlights
+      if (this.currentBook.highlights) {
+        this.currentBook.highlights.forEach(highlight => {
+          this.rendition.annotations.highlight(
+            highlight.cfi,
+            {},
+            (e: Event) => {
+              console.log('Highlight clicked:', e);
+            }
+          );
+        });
+      }
+
     } catch (error) {
       console.error('Failed to load book:', error);
     }
+  }
+
+  renderTableOfContents(toc: any[]) {
+    const tocElement = this.readerContainer.nativeElement.querySelector('.toc-content');
+    if (!tocElement) return;
+
+    const createTocItem = (item: any) => {
+      const div = document.createElement('div');
+      div.className = 'py-2 px-4 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer';
+      div.textContent = item.label;
+      div.onclick = () => this.navigateToLocation(item.href);
+      return div;
+    };
+
+    const renderItems = (items: any[]) => {
+      items.forEach(item => {
+        tocElement.appendChild(createTocItem(item));
+        if (item.subitems?.length) {
+          const subContainer = document.createElement('div');
+          subContainer.className = 'ml-4';
+          item.subitems.forEach((subitem: any) => {
+            subContainer.appendChild(createTocItem(subitem));
+          });
+          tocElement.appendChild(subContainer);
+        }
+      });
+    };
+
+    renderItems(toc);
   }
 
   // Navigation
@@ -246,8 +350,11 @@ export class ReaderComponent implements OnInit {
     this.rendition.prev();
   }
 
-  navigateToLocation(cfi: string) {
-    this.rendition.display(cfi);
+  navigateToLocation(target: string) {
+    if (target.startsWith('#')) {
+      target = target.substring(1);
+    }
+    this.rendition.display(target);
   }
 
   // Context menu actions
@@ -272,7 +379,6 @@ export class ReaderComponent implements OnInit {
       this.selectedCfi,
       {},
       (e: Event) => {
-        // Handle click on highlight
         console.log('Highlight clicked:', e);
       }
     );
