@@ -17,8 +17,27 @@
         "all": true
       },
       "fs": {
-        "all": true,
-        "scope": ["$APP/*", "$DOCUMENT/*", "$DOWNLOAD/*"]
+        "all": false,
+        "readFile": true,
+        "writeFile": true,
+        "readDir": true,
+        "copyFile": true,
+        "createDir": true,
+        "removeFile": true,
+        "removeDir": true,
+        "renameFile": true,
+        "scope": [
+          "C:\\Users\\Mekitonima Aliodi\\AppData\\Roaming\\com.tauri.dev\\books",
+          "C:\\Users\\Mekitonima Aliodi\\AppData\\Roaming\\com.tauri.dev\\books\\*",
+          "C:\\Users\\Mekitonima Aliodi\\AppData\\Roaming\\com.tauri.dev\\metadata",
+          "C:\\Users\\Mekitonima Aliodi\\AppData\\Roaming\\com.tauri.dev\\metadata\\*"
+        ]
+      },
+      "path": {
+        "all": true
+      },
+      "shell": {
+        "open": true
       }
     },
     "bundle": {
