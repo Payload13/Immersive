@@ -8,7 +8,6 @@ import {
   BaseDirectory,
   removeFile,
 } from "@tauri-apps/api/fs";
-import { appDataDir } from "@tauri-apps/api/path";
 import { invoke } from "@tauri-apps/api/tauri";
 import { BehaviorSubject } from "rxjs";
 
@@ -53,9 +52,12 @@ export class BookService {
 
   private async initializeStorage() {
     try {
-      const appData = await appDataDir();
-      await createDir(`${appData}books`, { recursive: true });
-      await createDir(`${appData}metadata`, { recursive: true });
+      // Create directories using BaseDirectory.AppData
+      await createDir("books", { dir: BaseDirectory.AppData, recursive: true });
+      await createDir("metadata", {
+        dir: BaseDirectory.AppData,
+        recursive: true,
+      });
       await this.loadBooks();
     } catch (error) {
       console.error("Failed to initialize storage:", error);
@@ -64,16 +66,17 @@ export class BookService {
 
   private async loadBooks() {
     try {
-      const appData = await appDataDir();
-      const metadataFiles = await readDir(`${appData}metadata`);
+      const metadataFiles = await readDir("metadata", {
+        dir: BaseDirectory.AppData,
+      });
       const books: Book[] = [];
 
       for (const file of metadataFiles) {
         if (file.name?.endsWith(".json")) {
           try {
-            const content = await readBinaryFile(
-              `${appData}metadata/${file.name}`
-            );
+            const content = await readBinaryFile(`metadata/${file.name}`, {
+              dir: BaseDirectory.AppData,
+            });
             const book = JSON.parse(new TextDecoder().decode(content));
 
             // Don't try to load cover here - we'll handle it in the component
@@ -109,7 +112,6 @@ export class BookService {
       if (!selected || Array.isArray(selected)) return null;
 
       const fileName = selected.split(/[\\/]/).pop() || "unknown.epub";
-      const appData = await appDataDir();
       const existingBooks = this.books.value; // Get current books
 
       // Check if a book with the same title already exists
@@ -124,15 +126,25 @@ export class BookService {
       }
 
       const bookId = crypto.randomUUID();
-      const bookPath = `${appData}books/${bookId}.epub`;
+      const bookStoragePath = `books/${bookId}.epub`;
 
-      console.log(`Selected file: ${fileName}, storing as ${bookPath}`);
+      console.log(`Selected file: ${fileName}, storing as ${bookStoragePath}`);
 
       const bookContent = await readBinaryFile(selected);
-      await writeBinaryFile(bookPath, bookContent);
+      await writeBinaryFile(bookStoragePath, bookContent, {
+        dir: BaseDirectory.AppData,
+      });
 
       // Use Rust API to extract metadata and cover
       console.log("Invoking Rust API for metadata extraction...");
+      // The Rust function is expecting a full path, so we need to construct it
+      // or modify the Rust function to work with BaseDirectory
+
+      // Get the full path to the stored book for the Rust function
+      const bookPath =
+        (await invoke("check_storage_path", { handle: {} })) +
+        `/${bookId}.epub`;
+
       const response: { title: string; author: string; cover?: string } =
         await invoke("extract_metadata", {
           filePath: bookPath,
@@ -171,8 +183,8 @@ export class BookService {
     }
 
     try {
-      const appData = await appDataDir();
-      const coverPath = `${appData}books/${book.id}.cover.jpg`;
+      // The Rust function expects a full path
+      const coverPath = book.path.replace(".epub", ".cover.jpg");
 
       // Use Rust API to get cover as Base64
       const coverBase64 = await invoke<string>("get_cover_base64", {
@@ -195,10 +207,10 @@ export class BookService {
 
   async saveBookMetadata(book: Book) {
     try {
-      const appData = await appDataDir();
       await writeBinaryFile(
-        `${appData}metadata/${book.id}.json`,
-        new TextEncoder().encode(JSON.stringify(book, null, 2))
+        `metadata/${book.id}.json`,
+        new TextEncoder().encode(JSON.stringify(book, null, 2)),
+        { dir: BaseDirectory.AppData }
       );
     } catch (error) {
       console.error("Failed to save book metadata:", error);
@@ -250,20 +262,21 @@ export class BookService {
 
   async deleteBook(book: Book) {
     try {
-      const appData = await appDataDir();
-      const bookPath = `${appData}books/${book.id}.epub`;
-      const metadataPath = `${appData}metadata/${book.id}.json`;
-      const coverPath = `${appData}books/${book.id}.cover.jpg`;
+      // Get just the bookId from the path
+      const bookId = book.id;
 
-      await removeFile(bookPath).catch((err) =>
-        console.warn("Failed to delete EPUB file:", err)
-      );
-      await removeFile(metadataPath).catch((err) =>
-        console.warn("Failed to delete metadata:", err)
-      );
-      await removeFile(coverPath).catch((err) =>
-        console.warn("Failed to delete cover image:", err)
-      );
+      // Delete all related files
+      await removeFile(`books/${bookId}.epub`, {
+        dir: BaseDirectory.AppData,
+      }).catch((err) => console.warn("Failed to delete EPUB file:", err));
+
+      await removeFile(`metadata/${bookId}.json`, {
+        dir: BaseDirectory.AppData,
+      }).catch((err) => console.warn("Failed to delete metadata:", err));
+
+      await removeFile(`books/${bookId}.cover.jpg`, {
+        dir: BaseDirectory.AppData,
+      }).catch((err) => console.warn("Failed to delete cover image:", err));
 
       this.books.next(this.books.value.filter((b) => b.id !== book.id));
     } catch (error) {

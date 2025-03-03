@@ -4,7 +4,7 @@ import { RouterModule } from "@angular/router";
 import { BookService, Book } from "../../services/book.service";
 import { Router } from "@angular/router";
 import { FormsModule } from "@angular/forms";
-import { convertFileSrc } from "@tauri-apps/api/tauri";
+import { invoke } from "@tauri-apps/api/tauri";
 
 @Component({
   selector: "app-library",
@@ -28,15 +28,40 @@ import { convertFileSrc } from "@tauri-apps/api/tauri";
         <button
           (click)="importBook()"
           class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          [class.opacity-50]="multiSelect"
+          [disabled]="multiSelect"
         >
           Import Book
         </button>
         <button
           (click)="toggleMultiSelect()"
-          class="px-4 py-2 bg-gray-500 text-white rounded-lg"
+          class="px-4 py-2 rounded-lg transition-colors"
+          [class.bg-blue-600]="multiSelect"
+          [class.bg-gray-500]="!multiSelect"
+          [class.text-white]="true"
         >
-          {{ multiSelect ? "Cancel" : "Select Books" }}
+          {{ multiSelect ? "Cancel Selection" : "Select Books" }}
         </button>
+        <button
+          *ngIf="multiSelect && selectedBooks.size > 0"
+          (click)="deleteSelectedBooks()"
+          class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+        >
+          Delete Selected ({{ selectedBooks.size }})
+        </button>
+      </div>
+
+      <!-- Loading Animation -->
+      <div *ngIf="loading" class="flex justify-center items-center my-4">
+        <div class="flex space-x-2">
+          <div class="w-3 h-3 bg-gray-400 rounded-full animate-bounce"></div>
+          <div
+            class="w-3 h-3 bg-gray-500 rounded-full animate-bounce delay-150"
+          ></div>
+          <div
+            class="w-3 h-3 bg-gray-600 rounded-full animate-bounce delay-300"
+          ></div>
+        </div>
       </div>
 
       <!-- My Library Section -->
@@ -47,8 +72,35 @@ import { convertFileSrc } from "@tauri-apps/api/tauri";
           <div
             *ngFor="let book of filteredBooks()"
             class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden cursor-pointer group relative"
-            (click)="openBook(book.id)"
+            [class.ring-2]="multiSelect && isSelected(book)"
+            [class.ring-blue-500]="multiSelect && isSelected(book)"
+            (click)="handleBookClick(book)"
           >
+            <!-- Selection Overlay -->
+            <div *ngIf="multiSelect" class="absolute top-2 left-2 z-10">
+              <div
+                class="w-6 h-6 rounded border-2"
+                [class.bg-blue-500]="isSelected(book)"
+                [class.border-blue-500]="isSelected(book)"
+                [class.border-gray-300]="!isSelected(book)"
+              >
+                <svg
+                  *ngIf="isSelected(book)"
+                  class="w-5 h-5 text-white"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="2"
+                    d="M5 13l4 4L19 7"
+                  />
+                </svg>
+              </div>
+            </div>
+
             <div class="aspect-w-2 aspect-h-3 bg-gray-200 dark:bg-gray-700">
               <img
                 *ngIf="book.coverUrl"
@@ -90,6 +142,7 @@ import { convertFileSrc } from "@tauri-apps/api/tauri";
 
             <!-- More Options Button -->
             <button
+              *ngIf="!multiSelect"
               (click)="showDetails($event, book)"
               class="absolute top-2 right-2 opacity-0 group-hover:opacity-100 bg-gray-700 text-white p-1 rounded-full"
             >
@@ -99,7 +152,7 @@ import { convertFileSrc } from "@tauri-apps/api/tauri";
         </div>
       </div>
 
-      <!-- Book Details Card -->
+      <!-- Book Details Modal -->
       <div
         *ngIf="selectedBook"
         class="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center"
@@ -142,19 +195,16 @@ export class LibraryComponent implements OnInit {
   selectedBook: Book | null = null;
   searchQuery = "";
   multiSelect = false;
+  selectedBooks = new Set<string>(); // Store selected book IDs
+  loading = false;
 
   constructor(private bookService: BookService, private router: Router) {}
 
   ngOnInit() {
     this.bookService.books$.subscribe((books) => {
       console.log("Books updated in Library:", books);
-
-      // The covers should already be Base64 data, no need for convertFileSrc
-      this.books = books.map((book) => ({
-        ...book,
-      }));
-
-      // Load covers for any books that need them
+      this.books = books;
+      this.checkStoragePath();
       this.loadAllCovers();
     });
   }
@@ -171,6 +221,15 @@ export class LibraryComponent implements OnInit {
     }
   }
 
+  async checkStoragePath() {
+    try {
+      const path = await invoke("check_storage_path");
+      console.log("Resolved Path:", path);
+    } catch (error) {
+      console.error("Error:", error);
+    }
+  }
+
   filteredBooks() {
     if (!this.searchQuery || this.searchQuery.trim() === "") {
       return this.books;
@@ -184,27 +243,73 @@ export class LibraryComponent implements OnInit {
 
   toggleMultiSelect() {
     this.multiSelect = !this.multiSelect;
+    if (!this.multiSelect) {
+      // Clear selections when exiting multi-select mode
+      this.selectedBooks.clear();
+    }
+  }
+
+  isSelected(book: Book): boolean {
+    return this.selectedBooks.has(book.id);
+  }
+
+  handleBookClick(book: Book) {
+    if (this.multiSelect) {
+      if (this.selectedBooks.has(book.id)) {
+        this.selectedBooks.delete(book.id);
+      } else {
+        this.selectedBooks.add(book.id);
+      }
+    } else {
+      this.openBook(book.id);
+    }
+  }
+
+  async deleteSelectedBooks() {
+    if (this.selectedBooks.size === 0) return;
+
+    const count = this.selectedBooks.size;
+    const delStatus = await confirm(
+      `Are you sure you want to delete ${count} selected book${
+        count > 1 ? "s" : ""
+      }?`
+    );
+    if (delStatus) {
+      for (const bookId of this.selectedBooks) {
+        const book = this.books.find((b) => b.id === bookId);
+        if (book) {
+          await this.bookService.deleteBook(book);
+        }
+      }
+      this.selectedBooks.clear();
+      this.multiSelect = false;
+    }
   }
 
   showDetails(event: Event, book: Book) {
-    event.stopPropagation(); // Prevent the click from propagating to the book card
+    event.stopPropagation();
     this.selectedBook = book;
   }
 
   async importBook() {
+    this.loading = true; // Show loading animation
     try {
       const book = await this.bookService.importBook();
       if (book) {
-        // The cover should already be Base64 encoded from the Rust backend
         console.log("Book imported successfully:", book.title);
       }
     } catch (error) {
       console.error("Error importing book:", error);
+    } finally {
+      this.loading = false; //Hide loading animation
     }
   }
 
   async deleteBook(book: Book) {
-    if (confirm(`Are you sure you want to delete "${book.title}"?`)) {
+    const delStatus = await confirm(
+      `Are you sure you want to delete "${book.title}"?`
+    );
+    if (delStatus) {
       await this.bookService.deleteBook(book);
       this.selectedBook = null;
     }

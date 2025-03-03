@@ -3,9 +3,10 @@ use serde::Serialize;
 use std::fs::{self, File};
 use std::io::{Write};
 use std::path::{PathBuf};
-use tauri::AppHandle;
+use tauri::{AppHandle};
 use base64::engine::general_purpose::STANDARD;
 use base64::Engine;
+
 
 #[derive(Serialize)]
 pub struct EpubMetadata {
@@ -96,4 +97,27 @@ pub fn get_cover_base64(file_path: String) -> Result<String, String> {
         }
         Err(e) => Err(format!("Failed to read cover image: {:?}", e)),
     }
+}
+
+
+
+#[tauri::command]
+pub fn check_storage_path(handle: AppHandle) -> Result<String, String> {
+    let app_data_path = handle
+        .path_resolver()
+        .app_data_dir()
+        .ok_or("Failed to get app data dir")?; // Handle None case properly
+
+    let storage_path: PathBuf = app_data_path.join("books");
+
+    println!("Resolved Storage Path: {:?}", storage_path); // Debugging
+
+    if !storage_path.exists() {
+        return Err(format!(
+            "Path does not exist: {:?}",
+            storage_path.to_string_lossy()
+        ));
+    }
+
+    Ok(storage_path.to_string_lossy().into_owned())
 }

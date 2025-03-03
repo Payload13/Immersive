@@ -1,7 +1,7 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-@tailwindcss/aspect-ratio;
+@tailwindcss /aspect-ratio;
 
 /* Reader styles */
 .epub-container {
@@ -79,4 +79,26 @@
   .epub-container {
     font-size: 20px;
   }
+}
+
+@keyframes bounce {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+.animate-bounce {
+  animation: bounce 1s infinite ease-in-out;
+}
+
+.delay-150 {
+  animation-delay: 0.15s;
+}
+
+.delay-300 {
+  animation-delay: 0.3s;
 }
