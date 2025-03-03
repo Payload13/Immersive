@@ -27,10 +27,11 @@
         "removeDir": true,
         "renameFile": true,
         "scope": [
-          "C:\\Users\\Mekitonima Aliodi\\AppData\\Roaming\\com.tauri.dev\\books",
-          "C:\\Users\\Mekitonima Aliodi\\AppData\\Roaming\\com.tauri.dev\\books\\*",
-          "C:\\Users\\Mekitonima Aliodi\\AppData\\Roaming\\com.tauri.dev\\metadata",
-          "C:\\Users\\Mekitonima Aliodi\\AppData\\Roaming\\com.tauri.dev\\metadata\\*"
+          "$APPDATA",
+          "$APPDATA/books",
+          "$APPDATA/books/*",
+          "$APPDATA/metadata",
+          "$APPDATA/metadata/*"
         ]
       },
       "path": {
