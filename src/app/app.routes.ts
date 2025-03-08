@@ -7,7 +7,8 @@ import { SplashComponent } from './pages/splash/splash.component';
 export const routes: Routes = [
   {
     path: '',
-    component: SplashComponent
+    component: SplashComponent,
+    pathMatch: 'full' // Only match empty path exactly
   },
   {
     path: 'library',
@@ -20,5 +21,9 @@ export const routes: Routes = [
   {
     path: 'parallel/:leftBookId/:rightBookId',
     component: ParallelReaderComponent
+  },
+  {
+    path: '**', // Catch all route
+    redirectTo: 'library' // Redirect to library for any unknown routes
   }
 ];

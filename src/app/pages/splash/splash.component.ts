@@ -9,8 +9,11 @@ import { Router } from "@angular/router";
   template: `
     <div class="min-h-screen bg-gray-900 flex items-center justify-center">
       <div class="text-center">
-        <img src="assets/logo-no-bg.png" alt="Immersive" class="text-3xl" />
-        <!-- <h1 class="text-4xl font-bold text-white mb-4">Immersive</h1> -->
+        <img 
+          src="assets/logo-no-bg.png" 
+          alt="Immersive" 
+          class="w-48 h-auto" 
+        />
         <p class="text-gray-400 text-lg">Your Personal Reading Companion</p>
       </div>
     </div>
