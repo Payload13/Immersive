@@ -5,184 +5,349 @@ import { BookService, Book } from "../../services/book.service";
 import { Router } from "@angular/router";
 import { FormsModule } from "@angular/forms";
 import { invoke } from "@tauri-apps/api/tauri";
+import { NgIconComponent, provideIcons } from '@ng-icons/core';
+import { 
+  heroBookOpen, 
+  heroPlus, 
+  heroMagnifyingGlass, 
+  heroTrash, 
+  heroEllipsisVertical,
+  heroChevronRight,
+  heroCheck,
+  heroXMark
+} from '@ng-icons/heroicons/outline';
 
 @Component({
   selector: "app-library",
   standalone: true,
-  imports: [CommonModule, RouterModule, FormsModule],
+  imports: [CommonModule, RouterModule, FormsModule, NgIconComponent],
+  providers: [
+    provideIcons({ 
+      heroBookOpen, 
+      heroPlus, 
+      heroMagnifyingGlass, 
+      heroTrash, 
+      heroEllipsisVertical,
+      heroChevronRight,
+      heroCheck,
+      heroXMark
+    })
+  ],
   template: `
-    <div class="container mx-auto px-4 py-8">
-      <!-- Search Bar -->
-      <div class="mb-8 flex items-center gap-4">
-        <div class="relative w-full">
-          <input
-            type="text"
-            placeholder="Search books..."
-            class="w-full px-4 py-2 rounded-lg bg-gray-100 dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            [(ngModel)]="searchQuery"
-          />
-          <button class="absolute right-4 top-1/2 transform -translate-y-1/2">
-            🔍
+    <div class="min-h-screen bg-gray-50 dark:bg-gray-900">
+      <!-- Header -->
+      <header class="bg-white dark:bg-gray-800 shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+          <div class="flex items-center justify-between">
+            <h1 class="text-2xl font-bold text-gray-900 dark:text-white">My Library</h1>
+            <div class="flex items-center space-x-4">
+              <button
+                (click)="importBook()"
+                class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                [class.opacity-50]="multiSelect"
+                [disabled]="multiSelect"
+              >
+                <ng-icon name="heroPlus" class="h-5 w-5 mr-2"></ng-icon>
+                Import Book
+              </button>
+              <button
+                (click)="toggleMultiSelect()"
+                class="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                [class.bg-blue-600]="multiSelect"
+                [class.text-white]="multiSelect"
+                [class.bg-white]="!multiSelect"
+                [class.dark:bg-gray-700]="!multiSelect"
+                [class.text-gray-700]="!multiSelect"
+                [class.dark:text-gray-200]="!multiSelect"
+              >
+                <ng-icon 
+                  [name]="multiSelect ? 'heroXMark' : 'heroCheck'" 
+                  class="h-5 w-5 mr-2">
+                </ng-icon>
+                {{ multiSelect ? "Cancel Selection" : "Select Books" }}
+              </button>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <!-- Search Bar -->
+        <div class="mb-8">
+          <div class="relative">
+            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <ng-icon 
+                name="heroMagnifyingGlass" 
+                class="h-5 w-5 text-gray-400">
+              </ng-icon>
+            </div>
+            <input
+              type="text"
+              placeholder="Search your library..."
+              class="block w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+              [(ngModel)]="searchQuery"
+            />
+          </div>
+        </div>
+
+        <!-- Delete Selected Button -->
+        <div *ngIf="multiSelect && selectedBooks.size > 0" 
+             class="mb-6 flex justify-end">
+          <button
+            (click)="deleteSelectedBooks()"
+            class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+          >
+            <ng-icon name="heroTrash" class="h-5 w-5 mr-2"></ng-icon>
+            Delete Selected ({{ selectedBooks.size }})
           </button>
         </div>
-        <button
-          (click)="importBook()"
-          class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-          [class.opacity-50]="multiSelect"
-          [disabled]="multiSelect"
-        >
-          Import Book
-        </button>
-        <button
-          (click)="toggleMultiSelect()"
-          class="px-4 py-2 rounded-lg transition-colors"
-          [class.bg-blue-600]="multiSelect"
-          [class.bg-gray-500]="!multiSelect"
-          [class.text-white]="true"
-        >
-          {{ multiSelect ? "Cancel Selection" : "Select Books" }}
-        </button>
-        <button
-          *ngIf="multiSelect && selectedBooks.size > 0"
-          (click)="deleteSelectedBooks()"
-          class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
-        >
-          Delete Selected ({{ selectedBooks.size }})
-        </button>
-      </div>
 
-      <!-- Loading Animation -->
-      <div *ngIf="loading" class="flex justify-center items-center my-4">
-        <div class="flex space-x-2">
-          <div class="w-3 h-3 bg-gray-400 rounded-full animate-bounce"></div>
-          <div
-            class="w-3 h-3 bg-gray-500 rounded-full animate-bounce delay-150"
-          ></div>
-          <div
-            class="w-3 h-3 bg-gray-600 rounded-full animate-bounce delay-300"
-          ></div>
+        <!-- Loading Animation -->
+        <div *ngIf="loading" 
+             class="flex justify-center items-center my-8">
+          <div class="flex space-x-2">
+            <div class="w-3 h-3 bg-blue-400 rounded-full animate-bounce"></div>
+            <div class="w-3 h-3 bg-blue-500 rounded-full animate-bounce delay-150"></div>
+            <div class="w-3 h-3 bg-blue-600 rounded-full animate-bounce delay-300"></div>
+          </div>
         </div>
-      </div>
 
-      <!-- My Library Section -->
-      <div *ngIf="books.length > 0" class="mb-12">
-        <div
-          class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6"
-        >
-          <div
-            *ngFor="let book of filteredBooks()"
-            class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden cursor-pointer group relative"
-            [class.ring-2]="multiSelect && isSelected(book)"
-            [class.ring-blue-500]="multiSelect && isSelected(book)"
-            (click)="handleBookClick(book)"
-          >
-            <!-- Selection Overlay -->
-            <div *ngIf="multiSelect" class="absolute top-2 left-2 z-10">
-              <div
-                class="w-6 h-6 rounded border-2"
-                [class.bg-blue-500]="isSelected(book)"
-                [class.border-blue-500]="isSelected(book)"
-                [class.border-gray-300]="!isSelected(book)"
-              >
-                <svg
-                  *ngIf="isSelected(book)"
-                  class="w-5 h-5 text-white"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth="2"
-                    d="M5 13l4 4L19 7"
-                  />
-                </svg>
+        <!-- Recently Opened Books -->
+        <section *ngIf="recentBooks.length > 0" class="mb-12">
+          <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">
+            Recently Opened
+            </h2>
+          <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4">
+            <div *ngFor="let book of recentBooks"
+                 class="group relative bg-white dark:bg-gray-800 rounded-lg shadow-sm hover:shadow-md transition-shadow duration-200 overflow-hidden max-w-[180px]"
+                 [class.ring-2]="multiSelect && isSelected(book)"
+                 [class.ring-blue-500]="multiSelect && isSelected(book)"
+                 (click)="handleBookClick(book)">
+              
+              <!-- Selection Checkbox -->
+              <div *ngIf="multiSelect" 
+                   class="absolute top-2 left-2 z-10">
+                <div class="w-6 h-6 rounded-full border-2 flex items-center justify-center"
+                     [class.bg-blue-500]="isSelected(book)"
+                     [class.border-blue-500]="isSelected(book)"
+                     [class.border-gray-300]="!isSelected(book)">
+                  <ng-icon
+                    *ngIf="isSelected(book)"
+                    name="heroCheck"
+                    class="h-4 w-4 text-white">
+                  </ng-icon>
+                </div>
               </div>
-            </div>
 
-            <div class="aspect-w-2 aspect-h-3 bg-gray-200 dark:bg-gray-700">
-              <img
-                *ngIf="book.coverUrl"
-                [src]="book.coverUrl"
-                [alt]="book.title"
-                class="object-cover w-full h-full"
-              />
-              <div
-                *ngIf="!book.coverUrl"
-                class="flex items-center justify-center h-full"
-              >
-                <span
-                  *ngIf="book.title"
-                  class="text-2xl font-bold text-gray-400"
-                >
-                  {{ book.title[0] }}
-                </span>
-                <span
-                  *ngIf="!book.title"
-                  class="text-2xl font-bold text-gray-400"
-                  >📖</span
-                >
-              </div>
-            </div>
-            <div class="p-4">
-              <h3 class="font-semibold text-gray-900 dark:text-white mb-1">
-                {{ book.title }}
-              </h3>
-              <p class="text-sm text-gray-500 dark:text-gray-400">
-                {{ book.author }}
-              </p>
-              <div class="mt-2 h-1 bg-gray-200 dark:bg-gray-700 rounded">
+              <!-- Book Cover -->
+              <div class="aspect-w-2 aspect-h-3 bg-gray-200 dark:bg-gray-700 max-h-[240px]">
+                <img
+                  *ngIf="book.coverUrl"
+                  [src]="book.coverUrl"
+                  [alt]="book.title"
+                  class="object-cover w-full h-full"
+                />
                 <div
-                  class="h-full bg-blue-500 rounded"
-                  [style.width.%]="book.progress * 100"
+                  *ngIf="!book.coverUrl"
+                  class="flex items-center justify-center h-full"
+                >
+                  <ng-icon
+                    name="heroBookOpen"
+                    class="h-12 w-12 text-gray-400">
+                  </ng-icon>
+                </div>
+              </div>
+
+
+              <!-- Book Info -->
+              <div class="p-4">
+                <h3 class="font-medium text-gray-900 dark:text-white line-clamp-1">
+                  {{ book.title }}
+                </h3>
+                <p class="text-sm text-gray-500 dark:text-gray-400 mt-1 line-clamp-1">
+                  {{ book.author }}
+                </p>
+                <div class="mt-2">
+                  <div class="h-1 bg-gray-200 dark:bg-gray-700 rounded-full">
+                    <div
+                      class="h-full bg-blue-500 rounded-full"
+                      [style.width.%]="book.progress * 100"
+                    ></div>
+                  </div>
+                  <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    {{ (book.progress * 100).toFixed(0) }}% complete
+                  </p>
+                </div>
+              </div>
+
+              <!-- Actions Button -->
+              <button
+                *ngIf="!multiSelect"
+                (click)="showDetails($event, book)"
+                class="absolute top-2 right-2 p-1 rounded-full bg-gray-900/50 text-white opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+              >
+                <ng-icon name="heroEllipsisVertical" class="h-5 w-5"></ng-icon>
+              </button>
+            </div>
+          </div>
+        </section>
+
+        <!-- All Books -->
+        <section *ngIf="books.length > 0">
+          <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">
+            All Books
+          </h2>
+          <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4">
+            <div *ngFor="let book of filteredBooks()"
+                 class="group relative bg-white dark:bg-gray-800 rounded-lg shadow-sm hover:shadow-md transition-shadow duration-200 overflow-hidden max-w-[180px]"
+                 [class.ring-2]="multiSelect && isSelected(book)"
+                 [class.ring-blue-500]="multiSelect && isSelected(book)"
+                 (click)="handleBookClick(book)">
+              
+              <!-- Selection Checkbox -->
+              <div *ngIf="multiSelect" 
+                   class="absolute top-2 left-2 z-10">
+                <div class="w-6 h-6 rounded-full border-2 flex items-center justify-center"
+                     [class.bg-blue-500]="isSelected(book)"
+                     [class.border-blue-500]="isSelected(book)"
+                     [class.border-gray-300]="!isSelected(book)">
+                  <ng-icon
+                    *ngIf="isSelected(book)"
+                    name="heroCheck"
+                    class="h-4 w-4 text-white">
+                  </ng-icon>
+                </div>
+              </div>
+
+              <!-- Book Cover -->
+              <div class="aspect-w-2 aspect-h-3 bg-gray-200 dark:bg-gray-700 max-h-[240px]">
+                <img
+                  *ngIf="book.coverUrl"
+                  [src]="book.coverUrl"
+                  [alt]="book.title"
+                  class="object-cover w-full h-full"
+                />
+                <div
+                  *ngIf="!book.coverUrl"
+                  class="flex items-center justify-center h-full"
+                >
+                  <ng-icon
+                    name="heroBookOpen"
+                    class="h-12 w-12 text-gray-400">
+                  </ng-icon>
+                </div>
+              </div>
+
+              <!-- Book Info -->
+              <div class="p-4">
+                <h3 class="font-medium text-gray-900 dark:text-white line-clamp-1">
+                  {{ book.title }}
+                </h3>
+                <p class="text-sm text-gray-500 dark:text-gray-400 mt-1 line-clamp-1">
+                  {{ book.author }}
+                </p>
+                <div class="mt-2">
+                  <div class="h-1 bg-gray-200 dark:bg-gray-700 rounded-full">
+                    <div
+                      class="h-full bg-blue-500 rounded-full"
+                      [style.width.%]="book.progress * 100"
+                    ></div>
+                  </div>
+                  <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    {{ (book.progress * 100).toFixed(0) }}% complete
+                  </p>
+                </div>
+              </div>
+
+              <!-- Actions Button -->
+              <button
+                *ngIf="!multiSelect"
+                (click)="showDetails($event, book)"
+                class="absolute top-2 right-2 p-1 rounded-full bg-gray-900/50 text-white opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+              >
+                <ng-icon name="heroEllipsisVertical" class="h-5 w-5"></ng-icon>
+              </button>
+            </div>
+          </div>
+        </section>
+
+        <!-- Empty State -->
+        <div *ngIf="books.length === 0" 
+             class="text-center py-12">
+          <ng-icon
+            name="heroBookOpen"
+            class="mx-auto h-12 w-12 text-gray-400">
+          </ng-icon>
+          <h3 class="mt-2 text-sm font-medium text-gray-900 dark:text-white">No books</h3>
+          <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+            Get started by importing your first book
+          </p>
+          <div class="mt-6">
+            <button
+              (click)="importBook()"
+              class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            >
+              <ng-icon name="heroPlus" class="h-5 w-5 mr-2"></ng-icon>
+              Import Book
+            </button>
+          </div>
+        </div>
+      </main>
+
+      <!-- Book Details Modal -->
+      <div *ngIf="selectedBook"
+           class="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center p-4 z-50">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full overflow-hidden"
+             (click)="$event.stopPropagation()">
+          <div class="relative">
+            <img
+              [src]="selectedBook.coverUrl"
+              [alt]="selectedBook.title"
+              class="w-full h-48 object-cover"
+            />
+            <button
+              (click)="selectedBook = null"
+              class="absolute top-2 right-2 p-1 rounded-full bg-gray-900/50 text-white hover:bg-gray-900/75"
+            >
+              <ng-icon name="heroXMark" class="h-5 w-5"></ng-icon>
+            </button>
+          </div>
+          
+          <div class="p-6">
+            <h2 class="text-xl font-semibold text-gray-900 dark:text-white">
+              {{ selectedBook.title }}
+            </h2>
+            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+              By {{ selectedBook.author }}
+            </p>
+            
+            <div class="mt-4">
+              <div class="flex items-center justify-between text-sm text-gray-500 dark:text-gray-400">
+                <span>Reading Progress</span>
+                <span>{{ (selectedBook.progress * 100).toFixed(0) }}%</span>
+              </div>
+              <div class="mt-2 h-1 bg-gray-200 dark:bg-gray-700 rounded-full">
+                <div
+                  class="h-full bg-blue-500 rounded-full"
+                  [style.width.%]="selectedBook.progress * 100"
                 ></div>
               </div>
             </div>
 
-            <!-- More Options Button -->
-            <button
-              *ngIf="!multiSelect"
-              (click)="showDetails($event, book)"
-              class="absolute top-2 right-2 opacity-0 group-hover:opacity-100 bg-gray-700 text-white p-1 rounded-full"
-            >
-              &#8942;
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <!-- Book Details Modal -->
-      <div
-        *ngIf="selectedBook"
-        class="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center"
-      >
-        <div
-          class="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg max-w-sm"
-        >
-          <img
-            [src]="selectedBook.coverUrl"
-            class="w-full h-48 object-cover rounded-lg mb-4"
-          />
-          <h2 class="text-xl font-bold text-gray-900 dark:text-white">
-            {{ selectedBook.title }}
-          </h2>
-          <p class="text-gray-600 dark:text-gray-400">
-            Author: {{ selectedBook.author }}
-          </p>
-          <div class="flex justify-between mt-4">
-            <button
-              (click)="deleteBook(selectedBook)"
-              class="bg-red-500 text-white px-4 py-2 rounded-lg"
-            >
-              Delete
-            </button>
-            <button
-              (click)="selectedBook = null"
-              class="bg-gray-500 text-white px-4 py-2 rounded-lg"
-            >
-              Close
-            </button>
+            <div class="mt-6 flex justify-end space-x-3">
+              <button
+                (click)="selectedBook = null"
+                class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              >
+                Close
+              </button>
+              <button
+                (click)="deleteBook(selectedBook)"
+                class="px-4 py-2 border border-transparent rounded-md text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+              >
+                Delete
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -191,22 +356,29 @@ import { invoke } from "@tauri-apps/api/tauri";
 })
 export class LibraryComponent implements OnInit {
   books: Book[] = [];
-  lastReadBook: Book | null = null;
+  recentBooks: Book[] = [];
   selectedBook: Book | null = null;
   searchQuery = "";
   multiSelect = false;
-  selectedBooks = new Set<string>(); // Store selected book IDs
+  selectedBooks = new Set<string>();
   loading = false;
 
   constructor(private bookService: BookService, private router: Router) {}
 
   ngOnInit() {
     this.bookService.books$.subscribe((books) => {
-      console.log("Books updated in Library:", books);
       this.books = books;
+      this.updateRecentBooks();
       this.checkStoragePath();
       this.loadAllCovers();
     });
+  }
+
+  private updateRecentBooks() {
+    // Get the 4 most recently read books
+    this.recentBooks = [...this.books]
+      .sort((a, b) => new Date(b.lastRead).getTime() - new Date(a.lastRead).getTime())
+      .slice(0, 4);
   }
 
   private async loadAllCovers() {
@@ -244,7 +416,6 @@ export class LibraryComponent implements OnInit {
   toggleMultiSelect() {
     this.multiSelect = !this.multiSelect;
     if (!this.multiSelect) {
-      // Clear selections when exiting multi-select mode
       this.selectedBooks.clear();
     }
   }
@@ -292,7 +463,7 @@ export class LibraryComponent implements OnInit {
   }
 
   async importBook() {
-    this.loading = true; // Show loading animation
+    this.loading = true;
     try {
       const book = await this.bookService.importBook();
       if (book) {
@@ -301,7 +472,7 @@ export class LibraryComponent implements OnInit {
     } catch (error) {
       console.error("Error importing book:", error);
     } finally {
-      this.loading = false; //Hide loading animation
+      this.loading = false;
     }
   }
 

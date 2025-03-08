@@ -83,10 +83,12 @@
     "windows": [
       {
         "fullscreen": false,
-        "height": 600,
+        "height": 768,
         "resizable": true,
+        "decorations": true,
+        "transparent": true,
         "title": "Immersive",
-        "width": 800
+        "width": 1336
       }
     ]
   }
